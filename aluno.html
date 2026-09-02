@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Controle Remoto</title>
+    <style>
+        body {
+            margin: 0;
+            background: #1e1e1e;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            touch-action: none; 
+            font-family: sans-serif;
+            user-select: none;
+        }
+        header { padding: 20px; font-size: 18px; font-weight: bold; }
+        
+        #trackpad {
+            flex-grow: 1;
+            width: 90%;
+            margin-bottom: 20px;
+            background: #2a2a2a;
+            border: 2px dashed #555;
+            border-radius: 15px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #888;
+            font-size: 1.2rem;
+            transition: background 0.2s;
+        }
+        #trackpad.active { background: #444; }
+    </style>
+</head>
+<body>
+    <header>Mouse Remoto</header>
+    <div id="trackpad">Arraste para mover, toque para clicar</div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js";
+        import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBKW1CdBkPJFOOWT_qoDIcfYoXEidJ6PJM",
+            authDomain: "mouse-sem-fio.firebaseapp.com",
+            databaseURL: "https://mouse-sem-fio-default-rtdb.firebaseio.com",
+            projectId: "mouse-sem-fio",
+            storageBucket: "mouse-sem-fio.firebasestorage.app",
+            messagingSenderId: "539536111005",
+            appId: "1:539536111005:web:af6c15c406af5e5e34eb74",
+            measurementId: "G-WX2J4Q4J1M"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const roomId = urlParams.get('room');
+
+        const trackpad = document.getElementById('trackpad');
+
+        if (!roomId) {
+            trackpad.innerText = "Erro: ID da sala não encontrado.";
+            trackpad.style.color = "#ff3b30";
+        } else {
+            let lastX = 0;
+            let lastY = 0;
+            let startX = 0;
+            let startY = 0;
+            let touchStartTime = 0;
+
+            trackpad.addEventListener('touchstart', (e) => {
+                lastX = e.touches[0].clientX;
+                lastY = e.touches[0].clientY;
+                startX = lastX;
+                startY = lastY;
+                touchStartTime = Date.now(); 
+            });
+
+            trackpad.addEventListener('touchmove', (e) => {
+                e.preventDefault(); 
+                
+                const currentX = e.touches[0].clientX;
+                const currentY = e.touches[0].clientY;
+                
+                const dx = currentX - lastX;
+                const dy = currentY - lastY;
+
+                set(ref(db, `salas/${roomId}/mouse`), {
+                    dx: dx,
+                    updateId: Date.now(), 
+                    dy: dy,
+                    click: false
+                });
+
+                lastX = currentX;
+                lastY = currentY;
+            }, { passive: false });
+
+            trackpad.addEventListener('touchend', (e) => {
+                const touchDuration = Date.now() - touchStartTime;
+                const moveDistX = Math.abs(lastX - startX);
+                const moveDistY = Math.abs(lastY - startY);
+
+                if (touchDuration < 200 && moveDistX < 10 && moveDistY < 10) {
+                    trackpad.classList.add('active');
+                    setTimeout(() => trackpad.classList.remove('active'), 150);
+
+                    set(ref(db, `salas/${roomId}/mouse`), {
+                        dx: 0,
+                        dy: 0,
+                        updateId: Date.now(),
+                        click: true
+                    });
+                }
+            });
+        }
+    </script>
+</body>
+</html>
